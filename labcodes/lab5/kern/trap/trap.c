@@ -22,7 +22,7 @@ static void print_ticks() {
     cprintf("%d ticks\n",TICK_NUM);
 #ifdef DEBUG_GRADE
     cprintf("End of Test.\n");
-    panic("EOT: kernel seems ok.");
+    //panic("EOT: kernel seems ok.");
 #endif
 }
 
@@ -61,7 +61,7 @@ idt_init(void) {
     for (i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
-    SETGATE(idt[T_SYSCALL], 0, GD_KTEXT, __vectors[i], DPL_USER);
+    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
     lidt(&idt_pd);
 }
 
@@ -233,6 +233,7 @@ trap_dispatch(struct trapframe *tf) {
 		ticks++;
 		if (ticks % TICK_NUM == 0) {
 			print_ticks();
+			current->need_resched = 1;
 		}
         break;
     case IRQ_OFFSET + IRQ_COM1:

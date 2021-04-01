@@ -428,8 +428,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 		goto bad_fork_cleanup_proc;
 	}
     //    3. call copy_mm to dup OR share mm according clone_flag
-    //    4. call copy_thread to setup tf & context in proc_struct
-    //    5. insert proc_struct into hash_list && proc_list
 	if (copy_mm(clone_flags, proc) != 0) { 
 		goto bad_fork_cleanup_kstack;
 	}
@@ -441,8 +439,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	{
 		proc->pid = get_pid();
 		hash_proc(proc);
-        list_add(&proc_list, &(proc->list_link));
-        nr_process ++;
+		set_links(proc);
 	}
 	local_intr_restore(intr_flag);
     //    6. call wakeup_proc to make the new child process RUNNABLE
@@ -520,8 +517,7 @@ do_exit(int error_code) {
  * @binary:  the memory addr of the content of binary program
  * @size:  the size of the content of binary program
  */
-static int
-load_icode(unsigned char *binary, size_t size) {
+static int load_icode(unsigned char *binary, size_t size) {
     if (current->mm != NULL) {
         panic("load_icode: current->mm must be empty.\n");
     }
@@ -647,6 +643,11 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+	tf->tf_cs = USER_CS;
+	tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+	tf->tf_esp = USTACKTOP;
+	tf->tf_eip = elf->e_entry;
+	tf->tf_eflags = FL_IF;
     ret = 0;
 out:
     return ret;
@@ -662,8 +663,7 @@ bad_mm:
 
 // do_execve - call exit_mmap(mm)&put_pgdir(mm) to reclaim memory space of current process
 //           - call load_icode to setup new memory space accroding binary prog.
-int
-do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
+int do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
     struct mm_struct *mm = current->mm;
     if (!user_mem_check(mm, (uintptr_t)name, len, 0)) {
         return -E_INVAL;

@@ -311,7 +311,9 @@ pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
+	cprintf("[pmm_init-xxh]VPT:%08x PDX(VPT):%d boot_pgdir[PDX(VPT)]:%08x\n", VPT, PDX(VPT), boot_pgdir[PDX(VPT)]);
     boot_pgdir[PDX(VPT)] = PADDR(boot_pgdir) | PTE_P | PTE_W;
+	cprintf("[pmm_init-xxh]VPT:%08x PDX(VPT):%d boot_pgdir[PDX(VPT)]:%08x\n", VPT, PDX(VPT), boot_pgdir[PDX(VPT)]);
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     // linear_addr KERNBASE ~ KERNBASE + KMEMSIZE = phy_addr 0 ~ KMEMSIZE
@@ -340,8 +342,8 @@ pmm_init(void) {
 //  la:     the linear address need to map
 //  create: a logical value to decide if alloc a page for PT
 // return vaule: the kernel virtual address of this pte
-pte_t *
-get_pte(pde_t *pgdir, uintptr_t la, bool create) {
+pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create)
+{
     /* LAB2 EXERCISE 2: xiaohui
      *
      * If you need to visit a physical address, please use KADDR()
@@ -369,6 +371,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 		 if (!create || (page = alloc_page()) == NULL) { // CAUTION: this page is used for page table, not for common data page
 			 return NULL;
 		 }
+		 //cprintf("[get_pte-xxh] alloc a new PT:%08x when access la:%08x, insert the PT into pdep:%08x\n", page, la, pdep);
          set_page_ref(page, 1);                          // (4) set page reference
          uintptr_t pa = page2pa(page);                   // (5) get linear address of page
          memset(KADDR(pa), 0, PGSIZE);                   // (6) clear page content using memset
@@ -500,7 +503,11 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
          * (4) build the map of phy addr of  nage with the linear addr start
          */
-        assert(ret == 0);
+		void *kva_src = page2kva(page);
+		void *kva_dst = page2kva(npage);
+		memcpy(kva_dst, kva_src, PGSIZE);
+		ret = page_insert(to, npage, start, perm);
+		assert(ret == 0);
         }
         start += PGSIZE;
     } while (start != 0 && start < end);
@@ -725,6 +732,7 @@ print_pgdir(void) {
     cprintf("-------------------- BEGIN --------------------\n");
     size_t left, right = 0, perm;
     while ((perm = get_pgtable_items(0, NPDEENTRY, right, vpd, &left, &right)) != 0) {
+		cprintf("left:%d right:%d\n", left, right);
         cprintf("PDE(%03x) %08x-%08x %08x %s\n", right - left,
                 left * PTSIZE, right * PTSIZE, (right - left) * PTSIZE, perm2str(perm));
         size_t l, r = left * NPTEENTRY;
